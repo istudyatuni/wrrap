@@ -53,8 +53,10 @@ pub fn base() -> Profile {
 
     Profile {
         write: vec![
+            // basic user info
             (path("/etc/passwd"), sys::get_passwd(&[uid, 65534])),
             (path("/etc/group"), sys::get_groups(&[uid, 65534])),
+            // nix config
             (
                 path("~/.config/nix/nix.conf"),
                 constants::NIX_CONF.to_string(),

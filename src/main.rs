@@ -27,10 +27,13 @@ fn main() -> Result<()> {
         .join("tmp.wrrap");
     let empty_file = temp_dir.join("empty");
     let empty_dir = temp_dir.join("emptydir");
-    std::fs::create_dir(&empty_dir).context("failed to create empty file")?;
+    std::fs::create_dir_all(&empty_dir).context("failed to create empty file")?;
     std::fs::write(&empty_file, "").context("failed to create empty dir")?;
 
-    let mut config = Bwrap::default();
+    let mut config = Bwrap {
+        user: std::env::var("USER").context("failed to get USER var")?,
+        ..Default::default()
+    };
 
     for p in ProfileKind::value_variants() {
         let profile = p.profile();
@@ -91,6 +94,8 @@ fn main() -> Result<()> {
         GitStatus::InIgnored => eprintln!("Current directory is git-ignored, mounting as-is"),
         GitStatus::InRepo(git_info) => (),
     }
+
+    bwrap::run(config, args)?;
 
     Ok(())
 }
