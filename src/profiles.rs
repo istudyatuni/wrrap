@@ -1,0 +1,107 @@
+use camino::Utf8PathBuf;
+use clap::ValueEnum;
+
+use crate::{path::PathExt, sys};
+
+#[derive(Debug, Default)]
+pub struct Profile {
+    /// Paths which used to detect whether profile should be activated
+    pub search: Vec<Utf8PathBuf>,
+
+    /// Which paths to bind as read-write
+    pub bind: Vec<Utf8PathBuf>,
+
+    /// Which paths to bind as read-only
+    pub ro_bind: Vec<Utf8PathBuf>,
+
+    /// Create additional files. Will be bounded as read-only
+    pub write: Vec<(Utf8PathBuf, String)>,
+
+    /// Allow paths to be mounted even if they're gitignored
+    pub allow_ignored: Vec<Utf8PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ProfileKind {
+    Golang,
+    Rust,
+}
+
+impl Profile {
+    pub fn is_present(&self) -> bool {
+        self.search.iter().all(|path| path.exists())
+    }
+}
+
+impl ProfileKind {
+    pub fn profile(self) -> Profile {
+        match self {
+            Self::Golang => golang(),
+            Self::Rust => rust(),
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Golang => "golang",
+            Self::Rust => "rust",
+        }
+    }
+}
+
+pub fn base() -> Profile {
+    let uid = sys::user_id();
+
+    Profile {
+        write: vec![
+            (path("/etc/passwd"), sys::get_passwd(&[uid, 65534])),
+            (path("/etc/group"), sys::get_groups(&[uid, 65534])),
+            (
+                path("~/.config/nix/nix.conf"),
+                constants::NIX_CONF.to_string(),
+            ),
+        ],
+        ..Default::default()
+    }
+}
+
+pub fn golang() -> Profile {
+    Profile {
+        search: vec![path("go.mod")],
+        ro_bind: vec![path("~/go")],
+        ..Default::default()
+    }
+}
+
+pub fn rust() -> Profile {
+    // mounting separately because when mounting only ~/.cargo it's impossible
+    // later to mount config.toml when it's a symlink
+    let mut ro_bind: Vec<_> = ["bin", "build", "git", "registry"]
+        .iter()
+        .map(|dir| path(format!("~/.cargo/{dir}")))
+        .collect();
+    ro_bind.push(path("~/.rustup"));
+
+    Profile {
+        search: vec![path("Cargo.toml")],
+        ro_bind,
+        write: vec![(
+            path("~/.cargo/config.toml"),
+            constants::CARGO_CONFIG.to_string(),
+        )],
+        allow_ignored: vec![path("./target")],
+        ..Default::default()
+    }
+}
+
+fn path(path: impl AsRef<str>) -> Utf8PathBuf {
+    Utf8PathBuf::from(path.as_ref()).expand_home()
+}
+
+mod constants {
+    // use mold instead of lld because otherwise build fails
+    pub const CARGO_CONFIG: &str = r#"[target.x86_64-unknown-linux-gnu]
+linker = "cc"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]"#;
+
+    pub const NIX_CONF: &str = "experimental-features = nix-command flakes";
+}
