@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, ValueEnum, error::ErrorKind};
 
 use crate::profiles::ProfileKind;
 
@@ -11,23 +11,23 @@ pub struct Args {
 }
 
 #[derive(Debug, Parser)]
-#[clap(override_usage = "<EXE> [OPTIONS] --exe-args [EXE_ARGS] --bwrap-args [BWRAP_ARGS]")]
+#[clap(override_usage = "
+  wrrap <EXE>
+  wrrap [OPTIONS] -- <EXE> [EXE_ARGS]...
+  wrrap [OPTIONS] --bwrap-args [BWRAP_ARGS]... -- <EXE> [EXE_ARGS]...")]
 struct ArgsRaw {
-    /// Executable to run
-    exe: String,
-
     /// Extra profiles to enable
     #[arg(short, long)]
     profiles: Vec<Profile>,
 
-    /// Arguments for executable
+    /// Arguments for bwrap (before `--`)
     // fake attribute for showing in help
-    #[arg(long = "exe-args")]
-    _exe_args: Vec<String>,
-
-    /// Arguments for bwrap
-    // fake attribute for showing in help
-    #[arg(long = "bwrap-args")]
+    #[arg(
+        long = "bwrap-args",
+        value_name = "BWRAP_ARGS",
+        num_args = 0..,
+        allow_hyphen_values = true,
+    )]
     _bwrap_args: Vec<String>,
 }
 
@@ -46,35 +46,66 @@ impl From<Profile> for ProfileKind {
     }
 }
 
+fn fail(message: &str) -> ! {
+    clap::Error::raw(ErrorKind::MissingRequiredArgument, message).exit()
+}
+
 pub fn parse_args() -> Args {
-    enum Group {
-        ExeArgs,
-        BwrapArgs,
-    }
+    let argv: Vec<String> = std::env::args().collect();
+    let program = argv
+        .first()
+        .cloned()
+        .unwrap_or_else(|| env!("CARGO_BIN_NAME").into());
+    let input = &argv[1..];
 
-    let mut cli_args = vec![std::env::args().next().expect("app name should be known")];
+    let separator = input.iter().position(|arg| arg == "--");
 
-    let mut exe = Vec::new();
-    let mut bwrap = Vec::new();
-    let mut current = None;
+    let (options, bwrap_args, command) = match separator {
+        Some(sep) => {
+            let before_separator = &input[..sep];
 
-    for arg in std::env::args().skip(1) {
-        match arg.as_str() {
-            "--exe-args" => current = Some(Group::ExeArgs),
-            "--bwrap-args" => current = Some(Group::BwrapArgs),
-            _ => match current {
-                None => cli_args.push(arg),
-                Some(Group::ExeArgs) => exe.push(arg),
-                Some(Group::BwrapArgs) => bwrap.push(arg),
-            },
+            if let Some(marker) = before_separator
+                .iter()
+                .position(|arg| arg == "--bwrap-args")
+            {
+                (
+                    before_separator[..marker].to_vec(),
+                    before_separator[marker + 1..].to_vec(),
+                    input[sep + 1..].to_vec(),
+                )
+            } else {
+                (
+                    before_separator.to_vec(),
+                    Vec::new(),
+                    input[sep + 1..].to_vec(),
+                )
+            }
         }
-    }
+        None => {
+            if input.iter().any(|arg| arg == "--bwrap-args") {
+                fail("`--bwrap-args` must be followed by `--`");
+            }
 
-    let args = ArgsRaw::parse_from(cli_args);
+            // without "--", accept a bare executable and its arguments
+            if input.first().is_some_and(|arg| !arg.starts_with('-')) {
+                (Vec::new(), Vec::new(), input.to_vec())
+            } else {
+                (input.to_vec(), Vec::new(), Vec::new())
+            }
+        }
+    };
+
+    let args = ArgsRaw::parse_from(std::iter::once(program).chain(options));
+
+    let (exe, exe_args) = match command.split_first() {
+        Some((exe, args)) => (exe.clone(), args.to_vec()),
+        None => fail("missing executable, expected `<EXE>`"),
+    };
+
     Args {
-        exe: args.exe,
+        exe,
         profiles: args.profiles.into_iter().map(Into::into).collect(),
-        exe_args: exe,
-        bwrap_args: bwrap,
+        exe_args,
+        bwrap_args,
     }
 }
