@@ -23,6 +23,7 @@ pub struct Profile {
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum ProfileKind {
+    Base,
     Golang,
     Rust,
 }
@@ -36,12 +37,14 @@ impl Profile {
 impl ProfileKind {
     pub fn profile(self) -> Profile {
         match self {
+            Self::Base => base(),
             Self::Golang => golang(),
             Self::Rust => rust(),
         }
     }
     pub fn name(self) -> &'static str {
         match self {
+            Self::Base => "base",
             Self::Golang => "golang",
             Self::Rust => "rust",
         }
@@ -61,6 +64,7 @@ pub fn base() -> Profile {
                 path("~/.config/nix/nix.conf"),
                 constants::NIX_CONF.to_string(),
             ),
+            (path("~/.jjconfig.toml"), constants::JJ_CONF.to_string()),
         ],
         ..Default::default()
     }
@@ -106,4 +110,5 @@ linker = "cc"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]"#;
 
     pub const NIX_CONF: &str = "experimental-features = nix-command flakes";
+    pub const JJ_CONF: &str = "ui.ignore-working-copy = true";
 }

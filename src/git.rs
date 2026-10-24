@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use anyhow::{Context, Result};
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use same_file::is_same_file;
 
 use crate::{git::cmd::git_output, string::os};
@@ -21,12 +21,10 @@ pub struct GitInfo {
     pub ignored: Vec<Utf8PathBuf>,
 }
 
-pub fn git_status() -> Result<GitStatus> {
+pub fn git_status(cwd: &Utf8Path) -> Result<GitStatus> {
     if !cmd::git_status(&["rev-parse"]) {
         return Ok(GitStatus::Outside);
     }
-    let cwd = Utf8PathBuf::try_from(std::env::current_dir().expect("current dir should be known"))
-        .expect("current dir name should be in utf-8");
     if cmd::git_status(&["check-ignore", "--quiet", cwd.as_str()]) {
         return Ok(GitStatus::InIgnored);
     }
@@ -39,9 +37,14 @@ pub fn git_status() -> Result<GitStatus> {
         .context("failed to list git ignored paths")?
         .lines()
         .filter(|line| line.starts_with("!! "))
-        .map(|line| Utf8PathBuf::from(line.trim_start_matches("!! ")))
+        .filter_map(|line| {
+            let path = Utf8PathBuf::from(line.trim_start_matches("!! "));
+            path.canonicalize_utf8()
+                .inspect_err(|e| eprintln!("failed to canonicalize path {path}"))
+                .ok()
+        })
         .collect();
-    if is_same_file(&git_root, &cwd)
+    if is_same_file(&git_root, cwd)
         .with_context(|| format!("git root {git_root} and cwd {cwd} should be accessible"))?
     {
         return Ok(GitStatus::InRepo(GitInfo { ignored }));
@@ -53,7 +56,12 @@ pub fn git_status() -> Result<GitStatus> {
     Ok(GitStatus::InRepo(GitInfo {
         ignored: ignored
             .into_iter()
-            .filter_map(|path| Some(path.strip_prefix(subdir).ok()?.to_path_buf()))
+            .filter_map(|path| {
+                let path = path.strip_prefix(subdir).ok()?.to_path_buf();
+                path.canonicalize_utf8()
+                    .inspect_err(|e| eprintln!("failed to canonicalize path {path}"))
+                    .ok()
+            })
             .collect(),
     }))
 }

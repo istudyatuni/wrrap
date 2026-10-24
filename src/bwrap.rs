@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 
 #[derive(Debug, Default)]
@@ -24,7 +24,7 @@ pub struct Env {
     pub value: String,
 }
 
-pub fn run(config: Bwrap, args: crate::args::Args) -> Result<()> {
+pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()> {
     use args_builder::*;
 
     let mut cmd = Command::new("bwrap");
@@ -49,7 +49,14 @@ pub fn run(config: Bwrap, args: crate::args::Args) -> Result<()> {
         .args(ro_bind_real(&Utf8PathBuf::from(
             "/etc/ssl/certs/ca-certificates.crt",
         ))?)
-        .args(env("PATH", &path_env(&["/bin", "/usr/bin"])));
+        .arg("--clearenv")
+        .args(env("PATH", &path_env(&["/bin", "/usr/bin"])))
+        .args(inherit_env("HOME"))
+        .args(inherit_env("TERM"))
+        .args(inherit_env("EDITOR"))
+        .args(inherit_env("LS_COLORS"))
+        .args(inherit_env("NIX_PATH"))
+        .args(bind(cwd));
 
     for mount in config.mounts {
         if mount.ro {
@@ -59,7 +66,7 @@ pub fn run(config: Bwrap, args: crate::args::Args) -> Result<()> {
         }
     }
 
-    eprintln!("debug args: {:?}", cmd.get_args());
+    // eprintln!("debug args: {:?}", cmd.get_args());
 
     cmd.arg(args.exe).status()?;
 
@@ -93,8 +100,12 @@ impl Env {
 }
 
 mod args_builder {
+    use std::ffi::OsString;
+
     use anyhow::{Context, Result};
     use camino::Utf8Path;
+
+    use crate::string::os;
 
     pub fn pair<'a>(a1: &'a str, a2: &'a str) -> Vec<&'a str> {
         vec![a1, a2]
@@ -112,6 +123,9 @@ mod args_builder {
     pub fn ro_bind(path: &Utf8Path) -> Vec<&str> {
         vec!["--ro-bind", path.as_str(), path.as_str()]
     }
+    pub fn bind(path: &Utf8Path) -> Vec<&str> {
+        vec!["--bind", path.as_str(), path.as_str()]
+    }
     pub fn ro_bind_to<'a>(from: &'a str, to: &'a str) -> Vec<&'a str> {
         vec!["--ro-bind", from, to]
     }
@@ -121,6 +135,13 @@ mod args_builder {
 
     pub fn env<'a>(name: &'a str, value: &'a str) -> Vec<&'a str> {
         vec!["--setenv", name, value]
+    }
+    pub fn inherit_env(name: &str) -> Vec<OsString> {
+        vec![
+            os("--setenv"),
+            os(name),
+            std::env::var_os(name).unwrap_or_default(),
+        ]
     }
     pub fn path_env(values: &[&str]) -> String {
         values.join(":")

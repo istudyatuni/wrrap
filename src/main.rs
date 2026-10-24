@@ -30,6 +30,9 @@ fn main() -> Result<()> {
     std::fs::create_dir_all(&empty_dir).context("failed to create empty file")?;
     std::fs::write(&empty_file, "").context("failed to create empty dir")?;
 
+    let cwd = Utf8PathBuf::try_from(std::env::current_dir().expect("current dir should be known"))
+        .expect("current dir name should be in utf-8");
+
     let mut config = Bwrap {
         user: std::env::var("USER").context("failed to get USER var")?,
         ..Default::default()
@@ -57,11 +60,14 @@ fn main() -> Result<()> {
         config.allow_ignored.extend(profile.allow_ignored);
     }
 
-    let git = git_status()?;
+    let git = git_status(&cwd)?;
 
     let git_base = Utf8PathBuf::from(".git");
     if git_base.exists() && git_base.is_dir() {
-        config.mounts.push(Mount::same(git_base, true));
+        let path = git_base
+            .canonicalize_utf8()
+            .context("failed to canonicalize .git")?;
+        config.mounts.push(Mount::same(path, true));
     }
 
     if let GitStatus::InRepo(GitInfo { ignored }) = &git {
@@ -69,8 +75,9 @@ fn main() -> Result<()> {
             if config.allow_ignored.contains(path) {
                 continue;
             }
-            if path.as_str().contains(".jj/") {
+            if path.ends_with(".jj/") {
                 config.mounts.push(Mount::same(path, true));
+                continue;
             }
 
             let empty_source = if path.is_dir() {
@@ -95,7 +102,8 @@ fn main() -> Result<()> {
         GitStatus::InRepo(git_info) => (),
     }
 
-    bwrap::run(config, args)?;
+    // eprintln!("bwrap config: {config:#?}");
+    bwrap::run(config, args, &cwd)?;
 
     Ok(())
 }
