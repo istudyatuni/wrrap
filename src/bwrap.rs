@@ -68,7 +68,10 @@ pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()>
 
     // eprintln!("debug args: {:?}", cmd.get_args());
 
-    cmd.arg(args.exe).status()?;
+    cmd.args(args.bwrap_args)
+        .arg(args.exe)
+        .args(args.exe_args)
+        .status()?;
 
     Ok(())
 }
