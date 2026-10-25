@@ -59,7 +59,7 @@ impl From<Profile> for ProfileKind {
 }
 
 fn fail(message: &str) -> ! {
-    clap::Error::raw(ErrorKind::MissingRequiredArgument, message).exit()
+    clap::Error::raw(ErrorKind::MissingRequiredArgument, format!("{message}\n")).exit()
 }
 
 pub fn parse_args() -> Args {
