@@ -103,6 +103,9 @@ fn main() -> Result<()> {
             } else if !path.is_symlink() && path.is_file() {
                 &empty_file
             } else {
+                if path.is_symlink() {
+                    eprintln!("Skipping hiding symlink {}", path.cyan());
+                }
                 // todo: also mount symlink. currently not possible, see
                 // https://github.com/containers/bubblewrap/issues/390
                 continue;
