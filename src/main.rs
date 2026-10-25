@@ -6,6 +6,7 @@ use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use owo_colors::OwoColorize;
+use same_file::is_same_file;
 
 use crate::{
     args::parse_args,
@@ -84,7 +85,11 @@ fn main() -> Result<()> {
 
     if let GitStatus::InRepo(GitInfo { ignored }) = &git {
         for path in ignored {
-            if config.allow_ignored.contains(path) {
+            if config
+                .allow_ignored
+                .iter()
+                .any(|p| is_same_file(p, path).is_ok_and(|b| b))
+            {
                 continue;
             }
             if path.ends_with(".jj/") {
