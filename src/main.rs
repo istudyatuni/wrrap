@@ -5,6 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
+use owo_colors::OwoColorize;
 
 use crate::{
     args::parse_args,
@@ -106,10 +107,13 @@ fn main() -> Result<()> {
 
     // todo: nix
 
-    eprintln!("Running {} in isolation", args.exe);
+    eprintln!("Running {} in isolation", args.exe.cyan());
     match &git {
-        GitStatus::Outside => eprintln!("Running outside of git repo"),
-        GitStatus::InIgnored => eprintln!("Current directory is git-ignored, mounting as-is"),
+        GitStatus::Outside => eprintln!("{}", "Running outside of git repo".yellow()),
+        GitStatus::InIgnored => eprintln!(
+            "{}",
+            "Current directory is git-ignored, mounting as-is".yellow()
+        ),
         GitStatus::InRepo(git_info) => (),
     }
 
