@@ -8,6 +8,9 @@ pub struct Profile {
     /// Paths which used to detect whether profile should be activated
     pub search: Vec<Utf8PathBuf>,
 
+    /// Detect profile by executable
+    pub detect_exe: Vec<String>,
+
     /// Which paths to bind as read-write
     pub bind: Vec<Utf8PathBuf>,
 
@@ -39,8 +42,8 @@ pub enum ProfileKind {
 }
 
 impl Profile {
-    pub fn is_present(&self) -> bool {
-        self.search.iter().all(|path| path.exists())
+    pub fn is_present(&self, exe: &str) -> bool {
+        self.detect_exe.iter().any(|e| e == exe) || self.search.iter().all(|path| path.exists())
     }
 }
 
