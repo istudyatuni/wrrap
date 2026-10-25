@@ -43,6 +43,7 @@ fn main() -> Result<()> {
 
     let mut config = Bwrap {
         user: std::env::var("USER").context("failed to get USER var")?,
+        allow_ignored: args.allow_ignored.clone(),
         ..Default::default()
     };
 

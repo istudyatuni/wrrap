@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum, error::ErrorKind};
 
 use crate::profiles::ProfileKind;
@@ -5,10 +6,12 @@ use crate::profiles::ProfileKind;
 #[derive(Debug)]
 #[cfg_attr(test, derive(Default, PartialEq, Eq))]
 pub struct Args {
-    pub exe: String,
     pub profiles: Vec<ProfileKind>,
-    pub exe_args: Vec<String>,
+    pub allow_ignored: Vec<Utf8PathBuf>,
+
     pub bwrap_args: Vec<String>,
+    pub exe: String,
+    pub exe_args: Vec<String>,
 }
 
 #[derive(Debug, Parser)]
@@ -20,6 +23,10 @@ struct ArgsRaw {
     /// Extra profiles to enable
     #[arg(short, long)]
     profiles: Vec<Profile>,
+
+    /// Extra git-ignored paths to mount as-is instead of hiding
+    #[arg(long, value_delimiter = ',')]
+    allow_ignored: Vec<Utf8PathBuf>,
 
     /// Arguments for bwrap (before `--`)
     // fake attribute for showing in help
@@ -111,10 +118,11 @@ pub fn parse_args_from(args: &[String]) -> Args {
     };
 
     Args {
-        exe,
         profiles: args.profiles.into_iter().map(Into::into).collect(),
-        exe_args,
+        allow_ignored: args.allow_ignored,
         bwrap_args,
+        exe,
+        exe_args,
     }
 }
 
@@ -204,6 +212,7 @@ mod tests {
                     profiles: vec![ProfileKind::Rust],
                     exe_args: vec!["-n".into(), "hello world".into()],
                     bwrap_args: vec!["--unshare-net".into()],
+                    ..Default::default()
                 },
             ),
             (
