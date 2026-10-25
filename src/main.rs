@@ -109,7 +109,6 @@ fn main() -> Result<()> {
         GitStatus::InRepo(git_info) => (),
     }
 
-    // eprintln!("bwrap config: {config:#?}");
     bwrap::run(config, args, &cwd)?;
 
     Ok(())

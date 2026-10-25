@@ -1,7 +1,7 @@
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 
-use crate::{path::PathExt, sys};
+use crate::{path::path, sys};
 
 #[derive(Debug, Default)]
 pub struct Profile {
@@ -120,10 +120,6 @@ pub fn rust() -> Profile {
         allow_ignored: vec![path("./target")],
         ..Default::default()
     }
-}
-
-fn path(path: impl AsRef<str>) -> Utf8PathBuf {
-    Utf8PathBuf::from(path.as_ref()).expand_home()
 }
 
 mod constants {

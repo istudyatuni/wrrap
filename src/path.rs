@@ -18,6 +18,10 @@ impl PathExt for Utf8PathBuf {
     }
 }
 
+pub fn path(path: impl AsRef<str>) -> Utf8PathBuf {
+    Utf8PathBuf::from(path.as_ref()).expand_home()
+}
+
 fn home_dir() -> Result<Utf8PathBuf, camino::FromPathBufError> {
     static HOME: LazyLock<std::path::PathBuf> =
         LazyLock::new(|| dirs::home_dir().expect("HOME not defined"));

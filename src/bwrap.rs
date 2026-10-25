@@ -3,6 +3,8 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 
+use crate::path::path;
+
 #[derive(Debug, Default)]
 pub struct Bwrap {
     pub user: String,
@@ -32,7 +34,7 @@ pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()>
         .args(pair("--dev", "/dev"))
         .args(pair("--proc", "/proc"))
         .args(pair("--tmpfs", "/tmp"))
-        .args(ro_bind(&Utf8PathBuf::from("/nix")))
+        .args(ro_bind(&path("/nix")))
         .args(ro_bind_to("/run/current-system/sw/bin", "/bin"))
         .args(ro_bind_to(
             &format!("/etc/profiles/per-user/{}/bin", config.user),
@@ -41,21 +43,30 @@ pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()>
         .arg("--unshare-all")
         .arg("--share-net")
         // network settings
-        .args(ro_bind_real(&Utf8PathBuf::from("/etc/resolv.conf"))?)
+        .args(ro_bind_real(&path("/etc/resolv.conf"))?)
         // ssl certs
-        .args(ro_bind_real(&Utf8PathBuf::from(
-            "/etc/ssl/certs/ca-bundle.crt",
-        ))?)
-        .args(ro_bind_real(&Utf8PathBuf::from(
-            "/etc/ssl/certs/ca-certificates.crt",
-        ))?)
+        .args(ro_bind_real(&path("/etc/ssl/certs/ca-bundle.crt"))?)
+        .args(ro_bind_real(&path("/etc/ssl/certs/ca-certificates.crt"))?)
+        // shell configs
+        // fish
+        .args(ro_bind_exists(&path("~/.config/fish")))
+        .args(ro_bind_exists(&path("/etc/config.fish")))
+        .args(ro_bind_exists(&path("/etc/generated_completions")))
+        // other
+        .args(ro_bind_exists(&path("~/.config/starship.toml")))
+        // env
         .arg("--clearenv")
-        .args(env("PATH", &path_env(&["/bin", "/usr/bin"])))
+        .args(env(
+            "PATH",
+            &path_env(&["/usr/local/bin", "/bin", "/usr/bin"]),
+        ))
         .args(inherit_env("HOME"))
         .args(inherit_env("TERM"))
         .args(inherit_env("EDITOR"))
         .args(inherit_env("LS_COLORS"))
         .args(inherit_env("NIX_PATH"))
+        .args(inherit_env("SHLVL"))
+        .args(env("IN_WRRAP", "1"))
         .args(bind(cwd));
 
     for mount in config.mounts {
@@ -68,6 +79,8 @@ pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()>
 
     // eprintln!("debug args: {:?}", cmd.get_args());
 
+    // bwrap_args should be after all other args for --bind options from
+    // bwrap_args to work
     cmd.args(args.bwrap_args)
         .arg(args.exe)
         .args(args.exe_args)
@@ -127,6 +140,12 @@ mod args_builder {
         ])
     }
     pub fn ro_bind(path: &Utf8Path) -> Vec<&str> {
+        vec!["--ro-bind", path.as_str(), path.as_str()]
+    }
+    pub fn ro_bind_exists(path: &Utf8Path) -> Vec<&str> {
+        if !path.exists() {
+            return vec![];
+        }
         vec!["--ro-bind", path.as_str(), path.as_str()]
     }
     pub fn bind(path: &Utf8Path) -> Vec<&str> {
