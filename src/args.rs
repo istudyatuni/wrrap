@@ -35,6 +35,8 @@ struct ArgsRaw {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum Profile {
     Golang,
+    NodejsNpm,
+    NodejsYarn,
     Rust,
 }
 
@@ -42,6 +44,8 @@ impl From<Profile> for ProfileKind {
     fn from(value: Profile) -> Self {
         match value {
             Profile::Golang => Self::Golang,
+            Profile::NodejsNpm => Self::NodejsNpm,
+            Profile::NodejsYarn => Self::NodejsYarn,
             Profile::Rust => Self::Rust,
         }
     }

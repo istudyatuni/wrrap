@@ -33,6 +33,8 @@ pub struct ProfileFile {
 pub enum ProfileKind {
     Base,
     Golang,
+    NodejsNpm,
+    NodejsYarn,
     Rust,
 }
 
@@ -64,6 +66,8 @@ impl ProfileKind {
         match self {
             Self::Base => base(),
             Self::Golang => golang(),
+            Self::NodejsNpm => nodejs_npm(),
+            Self::NodejsYarn => nodejs_yarn(),
             Self::Rust => rust(),
         }
     }
@@ -71,6 +75,8 @@ impl ProfileKind {
         match self {
             Self::Base => "base",
             Self::Golang => "golang",
+            Self::NodejsNpm => "nodejs-npm",
+            Self::NodejsYarn => "nodejs-yarn",
             Self::Rust => "rust",
         }
     }
@@ -118,6 +124,24 @@ pub fn rust() -> Profile {
             constants::CARGO_CONFIG,
         )],
         allow_ignored: vec![path("./target")],
+        ..Default::default()
+    }
+}
+
+pub fn nodejs_yarn() -> Profile {
+    Profile {
+        search: vec![path("package.json"), path("yarn.lock")],
+        ro_bind: vec![path("~/.config/yarn"), path("~/.yarn")],
+        allow_ignored: vec![path("./node_modules")],
+        ..Default::default()
+    }
+}
+
+pub fn nodejs_npm() -> Profile {
+    Profile {
+        search: vec![path("package.json"), path("package-lock.json")],
+        ro_bind: vec![path("~/.npm")],
+        allow_ignored: vec![path("./node_modules")],
         ..Default::default()
     }
 }
