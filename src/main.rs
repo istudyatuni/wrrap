@@ -2,7 +2,7 @@
 
 use std::os::unix::fs::PermissionsExt;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 
@@ -23,6 +23,10 @@ mod sys;
 
 fn main() -> Result<()> {
     let args = parse_args();
+
+    if !check_exe_runnable("bwrap") {
+        bail!("bwrap not found in PATH")
+    }
 
     let temp_dir = Utf8PathBuf::try_from(std::env::temp_dir())
         .expect("temp dir name should be in utf-8")
@@ -112,4 +116,15 @@ fn main() -> Result<()> {
     bwrap::run(config, args, &cwd)?;
 
     Ok(())
+}
+
+fn check_exe_runnable(name: &str) -> bool {
+    use std::process::{Command, Stdio};
+
+    Command::new(name)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null())
+        .status()
+        .is_ok()
 }
