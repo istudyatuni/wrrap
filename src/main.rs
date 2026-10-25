@@ -10,6 +10,7 @@ use crate::{
     args::parse_args,
     bwrap::{Bwrap, Mount},
     git::{GitInfo, GitStatus, git_status},
+    proc::check_exe_runnable,
     profiles::ProfileKind,
 };
 
@@ -17,6 +18,7 @@ mod args;
 mod bwrap;
 mod git;
 mod path;
+mod proc;
 mod profiles;
 mod string;
 mod sys;
@@ -47,7 +49,7 @@ fn main() -> Result<()> {
 
     for p in ProfileKind::value_variants() {
         let profile = p.profile();
-        if !args.profiles.contains(p) && !profile.is_present(&args.exe) {
+        if !args.profiles.contains(p) && !profile.is_present() {
             continue;
         }
         for b in profile.bind {
@@ -127,15 +129,4 @@ fn main() -> Result<()> {
     bwrap::run(config, args, &cwd)?;
 
     Ok(())
-}
-
-fn check_exe_runnable(name: &str) -> bool {
-    use std::process::{Command, Stdio};
-
-    Command::new(name)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .stdin(Stdio::null())
-        .status()
-        .is_ok()
 }
