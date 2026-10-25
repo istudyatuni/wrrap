@@ -136,13 +136,13 @@ mod tests {
     }
 
     impl Builder {
-        fn arg(mut self, value: &str) -> Self {
+        fn arg(self, value: &str) -> Self {
             self.args(&[value])
         }
-        fn bwrap(mut self) -> Self {
+        fn bwrap(self) -> Self {
             self.arg("--bwrap-args")
         }
-        fn sep(mut self) -> Self {
+        fn sep(self) -> Self {
             self.arg("--")
         }
         fn args(mut self, value: &[&str]) -> Self {

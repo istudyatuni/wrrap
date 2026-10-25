@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::path::path;
@@ -9,6 +9,7 @@ use crate::path::path;
 pub struct Bwrap {
     pub user: String,
     pub mounts: Vec<Mount>,
+    #[expect(unused)]
     pub envs: Vec<Env>,
     pub allow_ignored: Vec<Utf8PathBuf>,
 }
@@ -21,6 +22,7 @@ pub struct Mount {
 }
 
 #[derive(Debug)]
+#[expect(unused)]
 pub struct Env {
     pub name: String,
     pub value: String,
@@ -107,6 +109,7 @@ impl Mount {
 }
 
 impl Env {
+    #[expect(unused)]
     pub fn from_os(name: &str) -> Option<Self> {
         Some(Self {
             name: name.to_string(),

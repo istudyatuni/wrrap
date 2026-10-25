@@ -1,5 +1,3 @@
-#![expect(unused)]
-
 use std::os::unix::fs::PermissionsExt;
 
 use anyhow::{Context, Result, bail};
@@ -123,7 +121,7 @@ fn main() -> Result<()> {
             "{}",
             "Current directory is git-ignored, mounting as-is".yellow()
         ),
-        GitStatus::InRepo(git_info) => (),
+        GitStatus::InRepo(_) => (),
     }
 
     bwrap::run(config, args, &cwd)?;

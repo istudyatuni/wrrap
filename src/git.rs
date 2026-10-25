@@ -1,10 +1,8 @@
-use std::ffi::OsString;
-
 use anyhow::{Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use same_file::is_same_file;
 
-use crate::{git::cmd::git_output, string::os};
+use crate::git::cmd::git_output;
 
 #[derive(Debug)]
 pub enum GitStatus {
@@ -40,7 +38,7 @@ pub fn git_status(cwd: &Utf8Path) -> Result<GitStatus> {
         .filter_map(|line| {
             let path = Utf8PathBuf::from(line.trim_start_matches("!! "));
             path.canonicalize_utf8()
-                .inspect_err(|e| eprintln!("failed to canonicalize path {path}"))
+                .inspect_err(|e| eprintln!("failed to canonicalize path {path}: {e}"))
                 .ok()
         })
         .collect();
@@ -59,7 +57,7 @@ pub fn git_status(cwd: &Utf8Path) -> Result<GitStatus> {
             .filter_map(|path| {
                 let path = path.strip_prefix(subdir).ok()?.to_path_buf();
                 path.canonicalize_utf8()
-                    .inspect_err(|e| eprintln!("failed to canonicalize path {path}"))
+                    .inspect_err(|e| eprintln!("failed to canonicalize path {path}: {e}"))
                     .ok()
             })
             .collect(),
