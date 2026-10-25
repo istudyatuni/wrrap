@@ -29,6 +29,7 @@ pub struct ProfileFile {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum ProfileKind {
     Base,
     Golang,

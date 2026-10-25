@@ -3,6 +3,7 @@ use clap::{Parser, ValueEnum, error::ErrorKind};
 use crate::profiles::ProfileKind;
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Default, PartialEq, Eq))]
 pub struct Args {
     pub exe: String,
     pub profiles: Vec<ProfileKind>,
@@ -51,12 +52,15 @@ fn fail(message: &str) -> ! {
 }
 
 pub fn parse_args() -> Args {
-    let argv: Vec<String> = std::env::args().collect();
-    let program = argv
+    parse_args_from(&std::env::args().collect::<Vec<_>>())
+}
+
+pub fn parse_args_from(args: &[String]) -> Args {
+    let program = args
         .first()
         .cloned()
         .unwrap_or_else(|| env!("CARGO_BIN_NAME").into());
-    let input = &argv[1..];
+    let input = &args[1..];
 
     let separator = input.iter().position(|arg| arg == "--");
 
@@ -107,5 +111,110 @@ pub fn parse_args() -> Args {
         profiles: args.profiles.into_iter().map(Into::into).collect(),
         exe_args,
         bwrap_args,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, Default)]
+    struct Builder {
+        args: Vec<String>,
+    }
+
+    impl Builder {
+        fn arg(mut self, value: &str) -> Self {
+            self.args(&[value])
+        }
+        fn bwrap(mut self) -> Self {
+            self.arg("--bwrap-args")
+        }
+        fn sep(mut self) -> Self {
+            self.arg("--")
+        }
+        fn args(mut self, value: &[&str]) -> Self {
+            self.args.extend(value.iter().map(|s| s.to_string()));
+            self
+        }
+    }
+
+    #[test]
+    fn test_parse_args() {
+        const APP: &str = env!("CARGO_BIN_NAME");
+        const EXE: &str = "/bin/echo";
+
+        fn builder() -> Builder {
+            Builder::default()
+        }
+
+        let table: Vec<(Builder, Args)> = vec![
+            (
+                builder().arg(EXE),
+                Args {
+                    exe: EXE.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                builder().sep().arg(EXE),
+                Args {
+                    exe: EXE.into(),
+                    ..Default::default()
+                },
+            ),
+            (
+                builder()
+                    .args(&["--profiles", "rust"])
+                    .sep()
+                    .args(&[EXE, "hello", "world"]),
+                Args {
+                    exe: EXE.into(),
+                    profiles: vec![ProfileKind::Rust],
+                    exe_args: vec!["hello".into(), "world".into()],
+                    ..Default::default()
+                },
+            ),
+            (
+                builder()
+                    .bwrap()
+                    .args(&["--ro-bind", "/usr", "/usr"])
+                    .sep()
+                    .args(&[EXE]),
+                Args {
+                    exe: EXE.into(),
+                    exe_args: vec![],
+                    bwrap_args: vec!["--ro-bind".into(), "/usr".into(), "/usr".into()],
+                    ..Default::default()
+                },
+            ),
+            (
+                builder()
+                    .args(&["--profiles", "rust"])
+                    .bwrap()
+                    .args(&["--unshare-net"])
+                    .sep()
+                    .args(&[EXE, "-n", "hello world"]),
+                Args {
+                    exe: EXE.into(),
+                    profiles: vec![ProfileKind::Rust],
+                    exe_args: vec!["-n".into(), "hello world".into()],
+                    bwrap_args: vec!["--unshare-net".into()],
+                },
+            ),
+            (
+                builder().bwrap().sep().args(&[EXE]),
+                Args {
+                    exe: EXE.into(),
+                    ..Default::default()
+                },
+            ),
+        ];
+
+        for (args, expected) in table {
+            let args: Vec<_> = vec![APP.to_string()].into_iter().chain(args.args).collect();
+            let actual = parse_args_from(&args);
+            assert_eq!(actual, expected, "args: {args:?}");
+        }
     }
 }
