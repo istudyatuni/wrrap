@@ -8,7 +8,7 @@ use same_file::is_same_file;
 
 use crate::{
     args::parse_args,
-    bwrap::{Bwrap, Mount},
+    bwrap::{Bwrap, Env, Mount},
     git::{GitInfo, GitStatus, git_status},
     proc::check_exe_runnable,
     profiles::ProfileKind,
@@ -52,6 +52,15 @@ fn main() -> Result<()> {
         if !args.profiles.contains(p) && !profile.is_present() {
             continue;
         }
+        for (name, value) in &profile.env {
+            config.envs.push(Env::new(name, value));
+        }
+        for name in &profile.env_inherit {
+            if let Some(env) = Env::from_os(name) {
+                config.envs.push(env);
+            }
+        }
+        config.path_env.extend(profile.path);
         for b in profile.bind {
             config.mounts.push(Mount::same(b, false));
         }

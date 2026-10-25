@@ -3,6 +3,8 @@ use clap::ValueEnum;
 
 use crate::{path::path, proc::check_exe_runnable, sys};
 
+use helpers::*;
+
 #[derive(Debug, Default)]
 pub struct Profile {
     /// Paths which used to detect whether profile should be activated
@@ -20,6 +22,15 @@ pub struct Profile {
     /// Create additional files. Will be bounded as read-only
     pub write: Vec<ProfileFile>,
 
+    /// Env variables
+    pub env: Vec<(String, String)>,
+
+    /// Env variables to inherit from environment
+    pub env_inherit: Vec<String>,
+
+    /// PATH env component
+    pub path: Vec<String>,
+
     /// Allow paths to be mounted even if they're gitignored
     pub allow_ignored: Vec<Utf8PathBuf>,
 }
@@ -31,9 +42,13 @@ pub struct ProfileFile {
     pub executable: bool,
 }
 
+// Order of variants is important for PATH env
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ProfileKind {
     Base,
+
+    Nix,
+
     Golang,
     NodejsNpm,
     NodejsYarn,
@@ -69,6 +84,7 @@ impl ProfileKind {
         match self {
             Self::Base => base(),
             Self::Golang => golang(),
+            Self::Nix => nixos(),
             Self::NodejsNpm => nodejs_npm(),
             Self::NodejsYarn => nodejs_yarn(),
             Self::Rust => rust(),
@@ -78,6 +94,7 @@ impl ProfileKind {
         match self {
             Self::Base => "base",
             Self::Golang => "golang",
+            Self::Nix => "nix",
             Self::NodejsNpm => "nodejs-npm",
             Self::NodejsYarn => "nodejs-yarn",
             Self::Rust => "rust",
@@ -89,14 +106,33 @@ pub fn base() -> Profile {
     let uid = sys::user_id();
 
     Profile {
+        env: vec![env("IN_WRRAP", "1")],
+        env_inherit: ["HOME", "TERM", "EDITOR", "LS_COLORS", "SHLVL"]
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        path: ["/usr/local/bin", "/bin", "/usr/bin"]
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
         write: vec![
             // basic user info
             ProfileFile::new("/etc/passwd", &sys::get_passwd(&[uid, 65534])),
             ProfileFile::new("/etc/group", &sys::get_groups(&[uid, 65534])),
-            // nix config
-            ProfileFile::new("~/.config/nix/nix.conf", constants::NIX_CONF),
             // jj
             ProfileFile::new_exec("/usr/local/bin/jj", constants::JJ_WRAPPER),
+        ],
+        ..Default::default()
+    }
+}
+
+pub fn nixos() -> Profile {
+    Profile {
+        detect_exe: vec!["nix".to_string()],
+        env_inherit: vec!["NIX_PATH".to_string()],
+        write: vec![
+            // nix config
+            ProfileFile::new("~/.config/nix/nix.conf", constants::NIX_CONF),
         ],
         ..Default::default()
     }
@@ -159,4 +195,10 @@ rustflags = ["-C", "link-arg=-fuse-ld=mold"]"#;
 
     pub const JJ_WRAPPER: &str = r#"#!/bin/env bash
 exec /bin/jj --ignore-working-copy "$@""#;
+}
+
+mod helpers {
+    pub fn env(name: &str, value: &str) -> (String, String) {
+        (name.to_string(), value.to_string())
+    }
 }

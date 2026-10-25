@@ -9,8 +9,8 @@ use crate::path::path;
 pub struct Bwrap {
     pub user: String,
     pub mounts: Vec<Mount>,
-    #[expect(unused)]
     pub envs: Vec<Env>,
+    pub path_env: Vec<String>,
     pub allow_ignored: Vec<Utf8PathBuf>,
 }
 
@@ -22,7 +22,6 @@ pub struct Mount {
 }
 
 #[derive(Debug)]
-#[expect(unused)]
 pub struct Env {
     pub name: String,
     pub value: String,
@@ -58,18 +57,13 @@ pub fn run(config: Bwrap, args: crate::args::Args, cwd: &Utf8Path) -> Result<()>
         .args(ro_bind_exists(&path("~/.config/starship.toml")))
         // env
         .arg("--clearenv")
-        .args(env(
-            "PATH",
-            &path_env(&["/usr/local/bin", "/bin", "/usr/bin"]),
-        ))
-        .args(inherit_env("HOME"))
-        .args(inherit_env("TERM"))
-        .args(inherit_env("EDITOR"))
-        .args(inherit_env("LS_COLORS"))
-        .args(inherit_env("NIX_PATH"))
-        .args(inherit_env("SHLVL"))
-        .args(env("IN_WRRAP", "1"))
-        .args(bind(cwd));
+        .args(env("PATH", &path_env(&config.path_env)));
+
+    for Env { name, value } in &config.envs {
+        cmd.args(env(name, value));
+    }
+
+    cmd.args(bind(cwd));
 
     for mount in config.mounts {
         if mount.ro {
@@ -109,7 +103,12 @@ impl Mount {
 }
 
 impl Env {
-    #[expect(unused)]
+    pub fn new(name: &str, value: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            value: value.to_string(),
+        }
+    }
     pub fn from_os(name: &str) -> Option<Self> {
         Some(Self {
             name: name.to_string(),
@@ -119,12 +118,8 @@ impl Env {
 }
 
 mod args_builder {
-    use std::ffi::OsString;
-
     use anyhow::{Context, Result};
     use camino::Utf8Path;
-
-    use crate::string::os;
 
     pub fn pair<'a>(a1: &'a str, a2: &'a str) -> Vec<&'a str> {
         vec![a1, a2]
@@ -164,14 +159,7 @@ mod args_builder {
     pub fn env<'a>(name: &'a str, value: &'a str) -> Vec<&'a str> {
         vec!["--setenv", name, value]
     }
-    pub fn inherit_env(name: &str) -> Vec<OsString> {
-        vec![
-            os("--setenv"),
-            os(name),
-            std::env::var_os(name).unwrap_or_default(),
-        ]
-    }
-    pub fn path_env(values: &[&str]) -> String {
+    pub fn path_env(values: &[String]) -> String {
         values.join(":")
     }
 }
