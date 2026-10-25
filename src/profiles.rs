@@ -31,8 +31,7 @@ pub struct ProfileFile {
     pub executable: bool,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ProfileKind {
     Base,
     Golang,

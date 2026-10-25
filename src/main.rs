@@ -48,7 +48,7 @@ fn main() -> Result<()> {
 
     for p in ProfileKind::value_variants() {
         let profile = p.profile();
-        if !profile.is_present(&args.exe) {
+        if !args.profiles.contains(p) && !profile.is_present(&args.exe) {
             continue;
         }
         for b in profile.bind {
