@@ -5,6 +5,10 @@ use camino::Utf8PathBuf;
 pub trait PathExt {
     /// Replace leading "~/" from path. If prefix not found, return unchanged
     fn expand_home(&self) -> Self;
+    /// Canonicalize, but ignore if path is symlink
+    fn as_absolute_no_symlink(&self) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 impl PathExt for Utf8PathBuf {
@@ -15,6 +19,14 @@ impl PathExt for Utf8PathBuf {
             return home.join(path);
         }
         self.to_owned()
+    }
+    fn as_absolute_no_symlink(&self) -> Option<Self> {
+        if self.is_symlink() {
+            return None;
+        }
+        self.canonicalize_utf8()
+            .inspect_err(|e| eprintln!("failed to canonicalize path {self}: {e}"))
+            .ok()
     }
 }
 

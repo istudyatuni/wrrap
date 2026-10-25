@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use camino::{Utf8Path, Utf8PathBuf};
 use same_file::is_same_file;
 
-use crate::git::cmd::git_output;
+use crate::{git::cmd::git_output, path::PathExt};
 
 #[derive(Debug)]
 pub enum GitStatus {
@@ -36,10 +36,8 @@ pub fn git_status(cwd: &Utf8Path) -> Result<GitStatus> {
         .lines()
         .filter(|line| line.starts_with("!! "))
         .filter_map(|line| {
-            let path = Utf8PathBuf::from(line.trim_start_matches("!! "));
-            path.canonicalize_utf8()
-                .inspect_err(|e| eprintln!("failed to canonicalize path {path}: {e}"))
-                .ok()
+            // skip symlinks because its target will be wrongly emptied after canonicalize
+            Utf8PathBuf::from(line.trim_start_matches("!! ")).as_absolute_no_symlink()
         })
         .collect();
     if is_same_file(&git_root, cwd)
@@ -55,10 +53,11 @@ pub fn git_status(cwd: &Utf8Path) -> Result<GitStatus> {
         ignored: ignored
             .into_iter()
             .filter_map(|path| {
-                let path = path.strip_prefix(subdir).ok()?.to_path_buf();
-                path.canonicalize_utf8()
-                    .inspect_err(|e| eprintln!("failed to canonicalize path {path}: {e}"))
-                    .ok()
+                // skip symlinks because its target will be wrongly emptied after canonicalize
+                path.strip_prefix(subdir)
+                    .ok()?
+                    .to_path_buf()
+                    .as_absolute_no_symlink()
             })
             .collect(),
     }))
