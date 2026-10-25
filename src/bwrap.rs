@@ -114,13 +114,16 @@ mod args_builder {
         vec![a1, a2]
     }
     pub fn ro_bind_real(path: &Utf8Path) -> Result<Vec<String>> {
-        let real = path
+        ro_bind_real_to(path, path)
+    }
+    pub fn ro_bind_real_to(from: &Utf8Path, to: &Utf8Path) -> Result<Vec<String>> {
+        let real = from
             .canonicalize_utf8()
-            .with_context(|| format!("failed to get real path of {path}"))?;
+            .with_context(|| format!("failed to get real path of {from}"))?;
         Ok(vec![
             "--ro-bind".to_string(),
             real.to_string(),
-            path.to_string(),
+            to.to_string(),
         ])
     }
     pub fn ro_bind(path: &Utf8Path) -> Vec<&str> {

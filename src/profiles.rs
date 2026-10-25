@@ -15,10 +15,17 @@ pub struct Profile {
     pub ro_bind: Vec<Utf8PathBuf>,
 
     /// Create additional files. Will be bounded as read-only
-    pub write: Vec<(Utf8PathBuf, String)>,
+    pub write: Vec<ProfileFile>,
 
     /// Allow paths to be mounted even if they're gitignored
     pub allow_ignored: Vec<Utf8PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct ProfileFile {
+    pub path: Utf8PathBuf,
+    pub content: String,
+    pub executable: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -31,6 +38,23 @@ pub enum ProfileKind {
 impl Profile {
     pub fn is_present(&self) -> bool {
         self.search.iter().all(|path| path.exists())
+    }
+}
+
+impl ProfileFile {
+    fn new(p: &str, content: &str) -> Self {
+        Self {
+            path: path(p),
+            content: content.to_string(),
+            executable: false,
+        }
+    }
+    fn new_exec(p: &str, content: &str) -> Self {
+        Self {
+            path: path(p),
+            content: content.to_string(),
+            executable: true,
+        }
     }
 }
 
@@ -57,14 +81,12 @@ pub fn base() -> Profile {
     Profile {
         write: vec![
             // basic user info
-            (path("/etc/passwd"), sys::get_passwd(&[uid, 65534])),
-            (path("/etc/group"), sys::get_groups(&[uid, 65534])),
+            ProfileFile::new("/etc/passwd", &sys::get_passwd(&[uid, 65534])),
+            ProfileFile::new("/etc/group", &sys::get_groups(&[uid, 65534])),
             // nix config
-            (
-                path("~/.config/nix/nix.conf"),
-                constants::NIX_CONF.to_string(),
-            ),
-            (path("~/.jjconfig.toml"), constants::JJ_CONF.to_string()),
+            ProfileFile::new("~/.config/nix/nix.conf", constants::NIX_CONF),
+            // jj
+            ProfileFile::new_exec("/usr/local/bin/jj", constants::JJ_WRAPPER),
         ],
         ..Default::default()
     }
@@ -90,9 +112,9 @@ pub fn rust() -> Profile {
     Profile {
         search: vec![path("Cargo.toml")],
         ro_bind,
-        write: vec![(
-            path("~/.cargo/config.toml"),
-            constants::CARGO_CONFIG.to_string(),
+        write: vec![ProfileFile::new(
+            "~/.cargo/config.toml",
+            constants::CARGO_CONFIG,
         )],
         allow_ignored: vec![path("./target")],
         ..Default::default()
@@ -110,5 +132,7 @@ linker = "cc"
 rustflags = ["-C", "link-arg=-fuse-ld=mold"]"#;
 
     pub const NIX_CONF: &str = "experimental-features = nix-command flakes";
-    pub const JJ_CONF: &str = "ui.ignore-working-copy = true";
+
+    pub const JJ_WRAPPER: &str = r#"#!/bin/env bash
+exec /bin/jj --ignore-working-copy "$@""#;
 }

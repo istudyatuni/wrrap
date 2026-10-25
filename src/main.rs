@@ -1,5 +1,7 @@
 #![expect(unused)]
 
+use std::os::unix::fs::PermissionsExt;
+
 use anyhow::{Context, Result};
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
@@ -49,13 +51,18 @@ fn main() -> Result<()> {
         for b in profile.ro_bind {
             config.mounts.push(Mount::same(b, true));
         }
-        for (i, (target, content)) in profile.write.iter().enumerate() {
+        for (i, file) in profile.write.iter().enumerate() {
             let mut tmp = temp_dir.join(format!("{}_{i}", p.name()));
-            if let Some(ext) = target.extension() {
+            if let Some(ext) = file.path.extension() {
                 tmp.add_extension(ext);
             }
-            std::fs::write(&tmp, content).with_context(|| "failed to write {tmp}")?;
-            config.mounts.push(Mount::new(tmp, target, true));
+            std::fs::write(&tmp, file.content.to_owned() + "\n")
+                .with_context(|| format!("failed to write {tmp}"))?;
+            if file.executable {
+                std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o755))
+                    .context("failed to make file executable")?;
+            }
+            config.mounts.push(Mount::new(tmp, &file.path, true));
         }
         config.allow_ignored.extend(profile.allow_ignored);
     }
