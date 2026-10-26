@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum, error::ErrorKind};
 
@@ -6,7 +8,7 @@ use crate::profiles::ProfileKind;
 #[derive(Debug)]
 #[cfg_attr(test, derive(Default, PartialEq, Eq))]
 pub struct Args {
-    pub profiles: Vec<ProfileKind>,
+    pub profiles: HashSet<ProfileKind>,
     pub allow_ignored: Vec<Utf8PathBuf>,
 
     pub bwrap_args: Vec<String>,
@@ -182,7 +184,7 @@ mod tests {
                     .args(&[EXE, "hello", "world"]),
                 Args {
                     exe: EXE.into(),
-                    profiles: vec![ProfileKind::Rust],
+                    profiles: [ProfileKind::Rust].into_iter().collect(),
                     exe_args: vec!["hello".into(), "world".into()],
                     ..Default::default()
                 },
@@ -209,7 +211,7 @@ mod tests {
                     .args(&[EXE, "-n", "hello world"]),
                 Args {
                     exe: EXE.into(),
-                    profiles: vec![ProfileKind::Rust],
+                    profiles: [ProfileKind::Rust].into_iter().collect(),
                     exe_args: vec!["-n".into(), "hello world".into()],
                     bwrap_args: vec!["--unshare-net".into()],
                     ..Default::default()

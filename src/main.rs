@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    os::unix::fs::PermissionsExt,
-};
+use std::{collections::HashMap, os::unix::fs::PermissionsExt};
 
 use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
@@ -52,11 +49,8 @@ fn main() -> Result<()> {
 
     let profiles: HashMap<_, _> = ProfileKind::value_variants()
         .iter()
-        .chain(args.profiles.iter())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .map(|p| (p, p.profile()))
-        .filter(|(_, p)| p.is_present())
+        .map(|kind| (kind, kind.profile()))
+        .filter(|(kind, p)| args.profiles.contains(kind) || p.is_present())
         .collect();
 
     for (kind, profile) in profiles {
