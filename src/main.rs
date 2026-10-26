@@ -60,7 +60,7 @@ fn main() -> Result<()> {
                 config.envs.push(env);
             }
         }
-        config.path_env.extend(profile.path);
+        config.path_env.extend(profile.path.into_iter().rev());
         for b in profile.bind {
             config.mounts.push(Mount::same(b, false));
         }
@@ -134,6 +134,9 @@ fn main() -> Result<()> {
         ),
         GitStatus::InRepo(_) => (),
     }
+
+    // earlier entries should be shadowed by later entries
+    config.path_env.reverse();
 
     bwrap::run(config, args, &cwd)?;
 
