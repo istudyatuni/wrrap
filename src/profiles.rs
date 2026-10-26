@@ -57,7 +57,7 @@ pub enum ProfileKind {
 
 impl Profile {
     pub fn is_present(&self) -> bool {
-        self.detect_exe.iter().all(|e| check_exe_runnable(e))
+        (!self.detect_exe.is_empty() && self.detect_exe.iter().all(|e| check_exe_runnable(e)))
             || self.search.iter().all(|path| path.exists())
     }
 }
