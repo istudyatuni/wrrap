@@ -1,4 +1,7 @@
-use std::os::unix::fs::PermissionsExt;
+use std::{
+    collections::{HashMap, HashSet},
+    os::unix::fs::PermissionsExt,
+};
 
 use anyhow::{Context, Result, bail};
 use camino::Utf8PathBuf;
@@ -47,11 +50,16 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    for p in ProfileKind::value_variants() {
-        let profile = p.profile();
-        if !args.profiles.contains(p) && !profile.is_present() {
-            continue;
-        }
+    let profiles: HashMap<_, _> = ProfileKind::value_variants()
+        .iter()
+        .chain(args.profiles.iter())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .map(|p| (p, p.profile()))
+        .filter(|(_, p)| p.is_present())
+        .collect();
+
+    for (kind, profile) in profiles {
         for (name, value) in &profile.env {
             config.envs.push(Env::new(name, value));
         }
@@ -68,7 +76,7 @@ fn main() -> Result<()> {
             config.mounts.push(Mount::same(b, true));
         }
         for (i, file) in profile.write.iter().enumerate() {
-            let mut tmp = temp_dir.join(format!("{}_{i}", p.name()));
+            let mut tmp = temp_dir.join(format!("{}_{i}", kind.name()));
             if let Some(ext) = file.path.extension() {
                 tmp.add_extension(ext);
             }

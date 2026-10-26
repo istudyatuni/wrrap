@@ -43,7 +43,7 @@ pub struct ProfileFile {
 }
 
 // Order of variants is important for PATH env
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)]
 pub enum ProfileKind {
     Base,
 
