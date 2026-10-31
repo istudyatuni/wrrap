@@ -21,12 +21,7 @@ impl PathExt for Utf8PathBuf {
         self.to_owned()
     }
     fn as_absolute_no_symlink(&self) -> Option<Self> {
-        if self.is_symlink() {
-            return None;
-        }
-        self.canonicalize_utf8()
-            .inspect_err(|e| eprintln!("failed to canonicalize path {self}: {e}"))
-            .ok()
+        camino::absolute_utf8(self).ok()
     }
 }
 
