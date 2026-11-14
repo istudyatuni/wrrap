@@ -125,7 +125,11 @@ fn main() -> Result<()> {
         }
     }
 
-    // todo: nix
+    if let Ok(orig_path) = std::env::var("PATH") {
+        for p in orig_path.split(":").filter(|p| p.starts_with("/nix/store")) {
+            config.path_env.push(p.to_string());
+        }
+    }
 
     eprintln!("Running {} in isolation", args.exe.cyan());
     match &git {
