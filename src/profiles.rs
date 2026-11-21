@@ -107,7 +107,7 @@ pub fn base() -> Profile {
 
     Profile {
         env: vec![env("IN_WRRAP", "1")],
-        env_inherit: ["HOME", "TERM", "EDITOR", "LS_COLORS", "SHLVL"]
+        env_inherit: ["HOME", "TERM", "COLORTERM", "EDITOR", "LS_COLORS", "SHLVL"]
             .into_iter()
             .map(ToString::to_string)
             .collect(),
